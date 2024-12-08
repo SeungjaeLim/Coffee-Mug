@@ -2,6 +2,7 @@ import json
 import re
 import warnings
 import openai
+import webbrowser
 warnings.filterwarnings("ignore")
 client = openai.OpenAI(api_key = '')
 
@@ -125,3 +126,5 @@ def save_prediction(input_file, output_file):
 input_file = 'input.json'
 output_file = 'output.html'
 save_prediction(input_file, output_file)
+webbrowser.open(output_file)
+
