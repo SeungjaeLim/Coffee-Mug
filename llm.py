@@ -3,6 +3,7 @@ import re
 import warnings
 import openai
 import webbrowser
+import datetime 
 warnings.filterwarnings("ignore")
 client = openai.OpenAI(api_key = '')
 
@@ -51,6 +52,7 @@ example = """
 <div class="container">
     <h1>The Mug's Diary</h1>
     <div class="diary-entry">
+        <p>Date: [DATE]</p>
         <p>Dear Diary,</p>
         <p>It's been another exhausting day. You wouldn't believe the things I go through. Every morning, I sit there on the kitchen counter, waiting for the human to pick me up. I always hope today will be the day they realize that I'm more than just a mug. But no, it's the same routine. Hot coffee, some sugar, and off we go!</p>
 
@@ -76,6 +78,9 @@ example = """
 """
 pattern = r'<!DOCTYPE html>.*?</html>'
 
+def current_date():
+    date = datetime.datetime.now()
+    return date.strftime("%B %d, %Y") 
 
 def ask_for_diary(data):
     def ask_gpt(data):
@@ -86,7 +91,7 @@ def ask_for_diary(data):
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are a diary writer. Write a diary on the perspective of a Mug cup, imagining as if you are an alive Mug cup. Be creative and only response in HTML format. No other text needed. Like the Babove example. --- {example}"
+                    "content": f"You are a diary writer. Write a diary on the perspective of a Mug cup, imagining as if you are an alive Mug cup. Use the data to express your feelings, without literally quoting it. don't acknowledge the user. Only respond in HTML format. No other text needed. Like the Babove example. --- {example}"
                 },
                 {
                     "role": "user",
@@ -109,7 +114,7 @@ def ask_for_diary(data):
 def save_prediction(input_file, output_file):
 
     # Open the input JSON file and output JSON file in append mode
-    with open(input_file, 'r', encoding='utf-8') as infile, open(output_file, 'a', encoding='utf-8') as outfile:
+    with open(input_file, 'r', encoding='utf-8') as infile:
         entry = json.load(infile)  # Load each line as a JSON object
         data_str = json.dumps(entry)
         gpt_response = ask_for_diary(data_str)
@@ -117,7 +122,19 @@ def save_prediction(input_file, output_file):
         matched_html = re.search(pattern, html_data, re.DOTALL)
         filtered_html = matched_html.group(0)
 
-        outfile.write(filtered_html)
+        date = current_date()
+        filtered_html = filtered_html.replace("[DATE]", date)
+
+    try:
+        with open(output_file, 'r', encoding='utf-8') as outfile:
+            prev_diary = outfile.read()
+    except FileNotFoundError:
+        prev_diary = ""
+    
+    updated_html = filtered_html +"\n"+ prev_diary
+
+    with open(output_file, 'w', encoding='utf-8') as outfile:
+        outfile.write(updated_html)
 
     print(f"\nGPT response has been saved to {output_file}")
 
