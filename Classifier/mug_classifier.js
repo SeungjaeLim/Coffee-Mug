@@ -86,8 +86,17 @@ class EdgeImpulseClassifier {
 }
 
 // Example input: replace this with your features or file
+// Almost empty is under 1000
+// Halfway is around 28000
+// Almost full is around 42000
+
+// Light
+// Under 18k 
+// Above 40k
+
+
 // const inputFeatures = fs.readFileSync('./node/data.txt', 'utf-8').trim().split(',').map(Number); // Input data
-const temp = fs.readFileSync('./rotate.txt', 'utf-8').trim().split('\r\n'); // Input data
+const temp = fs.readFileSync('./rotate2.txt', 'utf-8').trim().split('\r\n'); // Input data
 const inputFeatures_shake = temp.map(row => [row.split(',')[0], row.split(',')[2]]).flat().map(Number);
 const inputFeatures_rotate = temp.map(row => [row.split(',')[4]]).flat();
 const inputFeatures_tilt = temp.map(row => [row.split(',')[0],row.split(',')[1],row.split(',')[2]]).flat();
