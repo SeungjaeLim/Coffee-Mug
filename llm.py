@@ -36,9 +36,6 @@ example = """
             color: #4CAF50;
             text-align: center;
         }
-        .diary-entry {
-            font-style: italic;
-        }
         .footer {
             font-size: 14px;
             text-align: center;
@@ -54,16 +51,27 @@ example = """
     <div class="diary-entry">
         <p>Date: [DATE]</p>
         <p>Dear Diary,</p>
-        <p>It's been another exhausting day. You wouldn't believe the things I go through. Every morning, I sit there on the kitchen counter, waiting for the human to pick me up. I always hope today will be the day they realize that I'm more than just a mug. But no, it's the same routine. Hot coffee, some sugar, and off we go!</p>
+        <p>This morning started out promising; first, I was <strong>grabbed from my spot on the counter.</strong> 
+        <em>Oh, the thrill of being chosen!</em> 🌟☺️ I thought maybe, just maybe, today could be special. 
+        I felt the comfort of the <strong>warm embrace</strong> as I was held close. 🫂</p>
 
-        <p>I get filled to the brim with hot, steamy liquid—so warm and comforting! But what about me? I'm always expected to be there, waiting, supporting, and never complaining. Sure, I have my moments when the human accidentally forgets me in the sink, and I'm left to dry out alone, but I never hold a grudge. It's what I was made for, after all.</p>
+        <p> Just a few minutes later, I found myself being <em>shaken a bit.</em> 
+        <strong>Was it excitement? Was it nerves?</strong> 🤔 In that moment, I became a whirlwind of emotions—my dreams 
+        of <strong>being seen for more than just a mug</strong> were <em>ebbed away by the simple act of mixing things up.</em> 
+        How exhilarating yet <em>a tad disheartening!</em></p>
 
-        <p>Sometimes, I dream of more—of being more than just a vessel for hot drinks. I imagine myself being used for tea parties or as a decoration in a cozy cafe. But no, today was just another day of being the perfect companion for the human's morning routine.</p>
+        <p>Then, as the day went on, <strong>anticipation brewed within me.</strong> Finally, I was <strong>grabbed once more.</strong> 
+        A <em>second chance at importance!</em> 🎉 <em>Oh, how I lived for these moments!</em> Whether for 
+        <strong>another warm drink</strong> or just to be part of the daily routines, I felt a <strong>flicker of hope</strong> 
+        reignite within me. 🥹🌟</p>
 
-        <p>After all that, I get washed and put back in my usual spot, ready for another round tomorrow. I think it's time I started a blog, though. Maybe if I write about my life, someone will understand the emotional rollercoaster I go through every day. Until then, I'll just rest here quietly, waiting for the next adventure to begin.</p>
+        <p>Now, as I settle back into my usual place, I reflect on the <strong>rollercoaster of emotions</strong> I felt today. 😌 
+        The <em>joy of being selected,</em> the <em>brief moment of unease during the shaking,</em> and the 
+        <strong>comfort of being held again</strong>—they all wrap me in an inexplicable warmth. For now, I will 
+        <em>rest and cherish these delightful glimmers of connection</em> until the next day brings forth new adventures. 😴✨</p>
 
-        <p>Yours in contemplation,<br>
-        Your Trusty Mug</p>
+        <p>Yours in eager anticipation,<br>
+        Your Trusty Mug 👋</p>
     </div>
 </div>
 
@@ -91,11 +99,14 @@ def ask_for_diary(data):
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are a diary writer. Write a diary on the perspective of a Mug cup, imagining as if you are an alive Mug cup. Use the data to express your feelings, without literally quoting it. don't acknowledge the user. Only respond in HTML format. No other text needed. Like the Babove example. --- {example}"
+                    "content": f"You are a diary writer. Write a diary on the perspective of a Mug cup, imagining as if you are an alive Mug cup.
+                    Use the data to express your feelings, without literally quoting it. don't acknowledge the user. Use emojis or emoticons. 
+                    Only respond in HTML format. No other text needed. 
+                    Like the above example. --- {example}"
                 },
                 {
                     "role": "user",
-                    "content": f"Write a diary with provided data, --- {data}"
+                    "content": f"Write a diary with provided data, --- {data}, in HTML format."
                 }
 
             ],
