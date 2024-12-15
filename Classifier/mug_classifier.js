@@ -4,6 +4,24 @@ const Module_rotate = require('./node_rotate/edge-impulse-standalone'); // Secon
 const Module_shake = require('./node_shake/edge-impulse-standalone'); // Second module
 const Module_tilt = require('./node_tilt/edge-impulse-standalone'); // Second module
 const fs = require('fs');
+const { SerialPort, ReadlineParser } = require('serialport');
+
+const path = '/dev/tty.usbmodem101'; 
+const baudRate = 115200;
+
+const port = new SerialPort({ path, baudRate });
+const parser = port.pipe(new ReadlineParser({delimiter: '\r\n'}));
+
+// Buffer to collect incoming data
+let buffer = [];
+let loadSensorBuffer = [];
+let lightSensorBuffer = [];
+
+// Duration for data collection (in milliseconds)
+const WINDOW_DURATION = 2000; // 2 seconds
+//number of samples in rolling window
+const N = 50;
+let features = Array(N).fill(0);
 
 class EdgeImpulseClassifier {
     constructor(module) {
@@ -45,34 +63,87 @@ class EdgeImpulseClassifier {
         }
 
         let jsResult = {
-            anomaly: ret.anomaly,
+            // Removed anomaly field
             results: []
         };
 
         for (let cx = 0; cx < ret.size(); cx++) {
             let c = ret.get(cx);
             if (props.model_type === 'object_detection' || props.model_type === 'constrained_object_detection') {
-                jsResult.results.push({ label: c.label, value: c.value, x: c.x, y: c.y, width: c.width, height: c.height });
-            } else {
+                jsResult.results.push({ 
+                    label: c.label, 
+                    value: c.value, 
+                    x: c.x, 
+                    y: c.y, 
+                    width: c.width, 
+                    height: c.height 
+                });
+            }
+            else {
                 jsResult.results.push({ label: c.label, value: c.value });
             }
             c.delete();
         }
 
         if (props.has_visual_anomaly_detection) {
-            jsResult.visual_ad_max = ret.visual_ad_max;
-            jsResult.visual_ad_mean = ret.visual_ad_mean;
-            jsResult.visual_ad_grid_cells = [];
-            for (let cx = 0; cx < ret.visual_ad_grid_cells_size(); cx++) {
-                let c = ret.visual_ad_grid_cells_get(cx);
-                jsResult.visual_ad_grid_cells.push({ label: c.label, value: c.value, x: c.x, y: c.y, width: c.width, height: c.height });
-                c.delete();
-            }
+            // Omitted anomaly-related fields
+            // jsResult.visual_ad_max = ret.visual_ad_max;
+            // jsResult.visual_ad_mean = ret.visual_ad_mean;
+            // jsResult.visual_ad_grid_cells = [];
+            // for (let cx = 0; cx < ret.visual_ad_grid_cells_size(); cx++) {
+            //     let c = ret.visual_ad_grid_cells_get(cx);
+            //     jsResult.visual_ad_grid_cells.push({
+            //         label: c.label, value: c.value,
+            //         x: c.x, y: c.y, width: c.width, height: c.height 
+            //     });
+            //     c.delete();
+            // }
         }
 
         ret.delete();
 
         return jsResult;
+    }
+
+    classifyContinuous(rawData, enablePerfCal = true) {
+        if (!this.classifierInitialized) throw new Error('Module is not initialized');
+
+        let props = this.module.get_properties();
+
+        const obj = this._arrayToHeap(rawData);
+        let ret = this.module.run_classifier_continuous(obj.buffer.byteOffset, rawData.length, false, enablePerfCal);
+        this.module._free(obj.ptr);
+
+        if (ret.result !== 0) {
+            throw new Error('Classification failed (err code: ' + ret.result + ')');
+        }
+
+
+        let jsResult = {
+            anomaly: ret.anomaly,
+            visual_ad_max: ret.visual_ad_max,
+            visual_ad_mean: ret.visual_ad_mean,
+            results: []
+        };
+
+        for (let cx = 0; cx < ret.size(); cx++) {
+            let c = ret.get(cx);
+            if (props.model_type === 'object_detection' || props.model_type === 'constrained_object_detection' || props.model_type === 'visual_anomaly') {
+                jsResult.results.push({ label: c.label, value: c.value, x: c.x, y: c.y, width: c.width, height: c.height });
+            }
+            else {
+                jsResult.results.push({ label: c.label, value: c.value });
+            }
+            c.delete();
+        }
+
+        ret.delete();
+
+        return jsResult;
+    }
+
+    getProperties() {
+        return this.module.get_properties();
     }
 
     _arrayToHeap(data) {
@@ -85,53 +156,152 @@ class EdgeImpulseClassifier {
     }
 }
 
-// Example input: replace this with your features or file
-// Almost empty is under 1000
-// Halfway is around 28000
-// Almost full is around 42000
-
-// Light
-// Under 18k 
-// Above 40k
-
-
-// const inputFeatures = fs.readFileSync('./node/data.txt', 'utf-8').trim().split(',').map(Number); // Input data
-const temp = fs.readFileSync('./rotate2.txt', 'utf-8').trim().split('\r\n'); // Input data
-const inputFeatures_shake = temp.map(row => [row.split(',')[0], row.split(',')[2]]).flat().map(Number);
-const inputFeatures_rotate = temp.map(row => [row.split(',')[4]]).flat();
-const inputFeatures_tilt = temp.map(row => [row.split(',')[0],row.split(',')[1],row.split(',')[2]]).flat();
-// console.log(inputFeatures_shake)
-// console.log(temp)
-
+//creating instance for shake classifier
 let classifier_shake = new EdgeImpulseClassifier(Module_shake);
-classifier_shake.init().then(() => {
-    // let project = classifier_shake.getProjectInfo();
-    // console.log('Running inference for classifier shake:', project.owner + ' / ' + project.name + ' (version ' + project.deploy_version + ')');
-
-    let result = classifier_shake.classify(inputFeatures_shake);
-    console.log('Result from classifier shake:', result);
-}).catch(err => {
-    console.error('Failed to initialize classifier shake', err);
-});
-
+//creating instance for rotate classifier
 let classifier_rotate = new EdgeImpulseClassifier(Module_rotate);
-classifier_rotate.init().then(() => {
-    // let project = classifier_rotate.getProjectInfo();
-    // console.log('Running inference for classifier rotate:', project.owner + ' / ' + project.name + ' (version ' + project.deploy_version + ')');
-
-    let result = classifier_rotate.classify(inputFeatures_rotate);
-    console.log('Result from classifier rotate:', result);
-}).catch(err => {
-    console.error('Failed to initialize classifier rotate', err);
-});
-
+//creating instance for tilt classifier
 let classifier_tilt = new EdgeImpulseClassifier(Module_tilt);
-classifier_tilt.init().then(() => {
-    // let project = classifier_tilt.getProjectInfo();
-    // console.log('Running inference for classifier rotate:', project.owner + ' / ' + project.name + ' (version ' + project.deploy_version + ')');
 
-    let result = classifier_tilt.classify(inputFeatures_tilt);
-    console.log('Result from classifier tilt:', result);
-}).catch(err => {
-    console.error('Failed to initialize classifier rotate', err);
+function writeResultsToFile(results) {
+    // Read existing data from the file
+    fs.readFile('../input.json', 'utf8', (err, data) => {
+        let jsonData = [];
+        if (!err) {
+            try {
+                jsonData = JSON.parse(data); 
+                if (!Array.isArray(jsonData)) { 
+                    console.error('Parsed data is not an array, resetting to empty array.');
+                    jsonData = []; 
+                }
+            } catch (parseErr) {
+                console.error('Error parsing JSON data:', parseErr);
+            }
+        }
+
+        jsonData.push({
+            Shake: results.Shake,
+            Rotate: results.Rotate,
+            Tilt: results.Tilt,
+            LoadSensor: results.LoadSensor,
+            LightSensor: results.LightSensor,
+            timestamp: results.timestamp
+        });
+        const dataToWrite = JSON.stringify(jsonData, null, 2);
+        fs.writeFile('../input.json', dataToWrite, (err) => {
+            if (err) {
+                console.error('Error writing to file', err);
+            } else {
+                console.log('Results saved to input.json');
+            }
+        });
+    });
+}
+
+Promise.all([
+    classifier_shake.init(),
+    classifier_rotate.init(),
+    classifier_tilt.init()
+]).then(()=>{
+    setInterval(() => {
+        if (buffer.length === 0) {
+            console.log('No data collected in this window.');
+            return;
+        }
+        if (buffer.length % 6 !== 0) {
+            console.warn(`Buffer length (${buffer.length}) is not a multiple of 6. Trimming excess values.`);
+            buffer = buffer.slice(0, Math.floor(buffer.length / 6) * 6);
+        }
+        const dataToClassify = [...buffer];
+        buffer = [];
+
+        try{
+            const shakeResult = classifier_shake.classify(dataToClassify);
+            const rotateResult = classifier_rotate.classify(dataToClassify);
+            const tiltResult = classifier_tilt.classify(dataToClassify);
+
+
+            delete shakeResult.anomaly;
+            delete rotateResult.anomaly;
+            delete tiltResult.anomaly;
+
+            const filterResults = (res, label) => ({
+                results: res.results.filter(r => r.label === label || r.label === 'default')
+            });
+
+            const filteredShake = filterResults(shakeResult, 'shake');
+            const filteredRotate = filterResults(rotateResult, 'rotate');
+            const filteredTilt = filterResults(tiltResult, 'tilt');
+
+            const latestLoadValue = loadSensorBuffer.length > 0 ? loadSensorBuffer[loadSensorBuffer.length - 1] : null;
+            const latestLightValue = lightSensorBuffer.length > 0 ? lightSensorBuffer[lightSensorBuffer.length - 1] : null;
+
+            //i think these values are not correct
+            let loadClassification = 'Unknown';
+            if (latestLoadValue !== null) {
+                if (latestLoadValue < 10000) {
+                    loadClassification = 'Almost Empty';
+                } else if (latestLoadValue >= 10000 && latestLoadValue < 46000) {
+                    loadClassification = 'Halfway';
+                } else if (latestLoadValue >= 46000) {
+                    loadClassification = 'Almost Full';
+                }
+            }
+
+            let lightClassification = 'Unknown';
+            if (latestLightValue !== null) {
+                //we need to adjust the thresholds here
+                if (latestLightValue < 1000) {
+                    lightClassification = 'Dark';
+                } else if (latestLightValue >= 1000 && latestLightValue < 28000) {
+                    lightClassification = 'Dim';
+                } else if (latestLightValue >= 28000 && latestLightValue < 46000) {
+                    lightClassification = 'Bright';
+                } else if (latestLightValue >= 46000) {
+                    lightClassification = 'Very Bright';
+                }
+            }
+
+            console.log('live classification:');
+            console.log('Shake:', filteredShake);
+            console.log('Rotate:', filteredRotate);
+            console.log('Tilt:', filteredTilt);
+            console.log('Load Sensor:', loadClassification);
+            console.log('Light Sensor:', lightClassification);
+            console.log('');
+
+
+            const resultsToSave = {
+                Shake: filteredShake,
+                Rotate: filteredRotate,
+                Tilt: filteredTilt,
+                LoadSensor: loadClassification,
+                LightSensor: lightClassification,
+                timestamp: new Date().toISOString()
+            };
+            writeResultsToFile(resultsToSave);
+
+        } catch (err) {
+            console.error('classification error:', err);
+        }
+
+    }, WINDOW_DURATION);
+    parser.on('data', (data) => {
+        const parts = data.trim().split(',');
+        if (parts.length < 6) {
+            console.warn(`Received data with insufficient values: ${data}`);
+            return;
+        }
+        const firstSix = parts.slice(0, 6).map(value => parseFloat(value));
+
+        const loadSensorValue = parseInt(parts[6], 10);
+        const lightSensorValue = parseInt(parts[7], 10);
+
+        buffer.push(...firstSix);
+        loadSensorBuffer.push(loadSensorValue);
+        lightSensorBuffer.push(lightSensorValue);
+    });
+
+}).catch(err=> {
+    console.error('failed to initialize classifiers', err);
 });
