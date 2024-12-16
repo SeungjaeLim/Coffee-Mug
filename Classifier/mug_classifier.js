@@ -166,18 +166,23 @@ let classifier_rotate = new EdgeImpulseClassifier(Module_rotate);
 //creating instance for tilt classifier
 let classifier_tilt = new EdgeImpulseClassifier(Module_tilt);
 
+let classifier_SR = new EdgeImpulseClassifier(Module_SR);
 
 // Function to determine event type: grabbed, shaken, or both
 function determineEventType(results) {
     const shakeLabel = results.Shake?.results?.find(r => r.label === 'shake' && r.value > 0.9);
     const rotateLabel = results.Rotate?.results?.find(r => r.label === 'rotate' && r.value > 0.9);
+    const tiltLabel = results.Tilt;
 
-    if (shakeLabel && rotateLabel) {
-        return "Mug grabbed and shaken";
+    if(tiltLabel){
+        return "Mug tilted";
+    }
+    else if (shakeLabel && rotateLabel) {
+        return "Mug rotated back and forth and shaken";
     } else if (shakeLabel) {
         return "Mug shaken";
     } else if (rotateLabel) {
-        return "Mug grabbed";
+        return "Mug rotated back and forth";
     }
     return null;
 }
@@ -263,9 +268,9 @@ Promise.all([
             // Hard-Coding
 
             // Analyze the accelerometer and gyroscope data for tilt detection
-            let tiltDetected = 'None'; // Default value if no tilt is detected
+            let tiltDetected = false; // Default value if no tilt is detected
             const TILT_THRESHOLD_ACCEL = 0.5; // Threshold for accelerometer tilt detection
-            const TILT_THRESHOLD_GYRO = 20;  // Threshold for gyroscope tilt detection
+            // const TILT_THRESHOLD_GYRO = 20;  // Threshold for gyroscope tilt detection
 
             // Iterate through the buffer (chunks of 6 values: ax, ay, az, gx, gy, gz)
             for (let i = 0; i < dataToClassify.length; i += 6) {
@@ -278,7 +283,8 @@ Promise.all([
             
             // Hard-coded tilt detection based on accelerometer
                 if (Math.abs(ay) < 0.7 && (Math.abs(ax) > TILT_THRESHOLD_ACCEL || Math.abs(az) > TILT_THRESHOLD_ACCEL)) {
-                    tiltDetected = 'Tilt Detected (Accelerometer)';
+                    // tiltDetected = 'Tilt Detected (Accelerometer)';
+                    tiltDetected=true;
                     break;
                 }
 
@@ -289,17 +295,18 @@ Promise.all([
                 // }
             }
             
-            console.log('Tilt Detection:', tiltDetected);
+            // console.log('Tilt Detection:', tiltDetected);
             //////////////
             const shakeResult = classifier_shake.classify(dataToClassify);
             const rotateResult = classifier_rotate.classify(dataToClassify);
-            const tiltResult = classifier_tilt.classify(dataToClassify);
+            // const tiltResult = classifier_tilt.classify(dataToClassify);
+            const tiltResult = tiltDetected;
             const srResult=classifier_SR.classify(dataForSR);
 
 
             delete shakeResult.anomaly;
             delete rotateResult.anomaly;
-            delete tiltResult.anomaly;
+            // delete tiltResult.anomaly;
             delete srResult.anomaly;
 
             const filterResults = (res, label) => ({
@@ -308,7 +315,7 @@ Promise.all([
 
             const filteredShake = filterResults(srResult, 'shake');
             const filteredRotate = filterResults(srResult, 'rotate');
-            const filteredTilt = filterResults(tiltResult, 'tilt');
+            // const filteredTilt = filterResults(tiltResult, 'tilt');
             
 
             const latestLoadValue = loadSensorBuffer.length > 0 ? loadSensorBuffer[loadSensorBuffer.length - 1] : null;
@@ -340,19 +347,19 @@ Promise.all([
                 }
             }
 
-            // console.log('live classification:');
-            // console.log('Shake:', filteredShake);
-            // console.log('Rotate:', filteredRotate);
-            // console.log('Tilt:', filteredTilt);
-            // console.log('Load Sensor:', loadClassification);
-            // console.log('Light Sensor:', lightClassification);
-            // console.log('');
+            console.log('live classification:');
+            console.log('Shake:', filteredShake);
+            console.log('Rotate:', filteredRotate);
+            console.log('Tilt:', tiltResult);
+            console.log('Load Sensor:', loadClassification);
+            console.log('Light Sensor:', lightClassification);
+            console.log('');
 
 
             const resultsToSave = {
                 Shake: filteredShake,
                 Rotate: filteredRotate,
-                Tilt: filteredTilt,
+                Tilt: tiltResult,
                 LoadSensor: loadClassification,
                 LightSensor: lightClassification,
                 timestamp: new Date().toISOString()
