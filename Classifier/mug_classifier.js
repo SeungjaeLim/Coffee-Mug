@@ -3,10 +3,13 @@
 const Module_rotate = require('./node_rotate/edge-impulse-standalone'); // Second module
 const Module_shake = require('./node_shake/edge-impulse-standalone'); // Second module
 const Module_tilt = require('./node_tilt/edge-impulse-standalone'); // Second module
+const Module_SR = require('./node_SR/edge-impulse-standalone'); // Second module
 const fs = require('fs');
 const { SerialPort, ReadlineParser } = require('serialport');
 
-const path = '/dev/tty.usbmodem101'; 
+// const path = '/dev/tty.usbmodem101'; 
+const path = 'COM4';
+
 const baudRate = 115200;
 
 const port = new SerialPort({ path, baudRate });
@@ -163,6 +166,8 @@ let classifier_rotate = new EdgeImpulseClassifier(Module_rotate);
 //creating instance for tilt classifier
 let classifier_tilt = new EdgeImpulseClassifier(Module_tilt);
 
+let classifier_SR = new EdgeImpulseClassifier(Module_SR);
+
 function writeResultsToFile(results) {
     // Read existing data from the file
     fs.readFile('../input.json', 'utf8', (err, data) => {
@@ -199,9 +204,10 @@ function writeResultsToFile(results) {
 }
 
 Promise.all([
-    classifier_shake.init(),
-    classifier_rotate.init(),
-    classifier_tilt.init()
+    // classifier_shake.init(),
+    // classifier_rotate.init(),
+    classifier_tilt.init(),
+    classifier_SR.init()
 ]).then(()=>{
     setInterval(() => {
         if (buffer.length === 0) {
@@ -213,25 +219,62 @@ Promise.all([
             buffer = buffer.slice(0, Math.floor(buffer.length / 6) * 6);
         }
         const dataToClassify = [...buffer];
+        const dataForSR = dataToClassify.filter((_, index) => index % 6 === 0 || index % 6 === 2 || index % 6 === 4);
+
+        // console.log(dataToClassify);
         buffer = [];
 
         try{
+            // Hard-Coding
+
+            // Analyze the accelerometer and gyroscope data for tilt detection
+            let tiltDetected = 'None'; // Default value if no tilt is detected
+            const TILT_THRESHOLD_ACCEL = 0.5; // Threshold for accelerometer tilt detection
+            const TILT_THRESHOLD_GYRO = 20;  // Threshold for gyroscope tilt detection
+
+            // Iterate through the buffer (chunks of 6 values: ax, ay, az, gx, gy, gz)
+            for (let i = 0; i < dataToClassify.length; i += 6) {
+                const ax = dataToClassify[i];
+                const ay = dataToClassify[i + 1];
+                const az = dataToClassify[i + 2];
+                const gx = dataToClassify[i + 3];
+                const gy = dataToClassify[i + 4];
+                const gz = dataToClassify[i + 5];
+            
+            // Hard-coded tilt detection based on accelerometer
+                if (Math.abs(ay) < 0.7 && (Math.abs(ax) > TILT_THRESHOLD_ACCEL || Math.abs(az) > TILT_THRESHOLD_ACCEL)) {
+                    tiltDetected = 'Tilt Detected (Accelerometer)';
+                    break;
+                }
+
+                // Additional detection based on gyroscope
+                // if (Math.abs(gx) > TILT_THRESHOLD_GYRO  || Math.abs(gz) > TILT_THRESHOLD_GYRO) {
+                //     tiltDetected = 'Tilt Detected (Gyroscope)';
+                //     break;
+                // }
+            }
+            
+            console.log('Tilt Detection:', tiltDetected);
+            //////////////
             const shakeResult = classifier_shake.classify(dataToClassify);
             const rotateResult = classifier_rotate.classify(dataToClassify);
             const tiltResult = classifier_tilt.classify(dataToClassify);
+            const srResult=classifier_SR.classify(dataForSR);
 
 
             delete shakeResult.anomaly;
             delete rotateResult.anomaly;
             delete tiltResult.anomaly;
+            delete srResult.anomaly;
 
             const filterResults = (res, label) => ({
                 results: res.results.filter(r => r.label === label || r.label === 'default')
             });
 
-            const filteredShake = filterResults(shakeResult, 'shake');
-            const filteredRotate = filterResults(rotateResult, 'rotate');
+            const filteredShake = filterResults(srResult, 'shake');
+            const filteredRotate = filterResults(srResult, 'rotate');
             const filteredTilt = filterResults(tiltResult, 'tilt');
+            
 
             const latestLoadValue = loadSensorBuffer.length > 0 ? loadSensorBuffer[loadSensorBuffer.length - 1] : null;
             const latestLightValue = lightSensorBuffer.length > 0 ? lightSensorBuffer[lightSensorBuffer.length - 1] : null;
@@ -262,13 +305,13 @@ Promise.all([
                 }
             }
 
-            console.log('live classification:');
-            console.log('Shake:', filteredShake);
-            console.log('Rotate:', filteredRotate);
-            console.log('Tilt:', filteredTilt);
-            console.log('Load Sensor:', loadClassification);
-            console.log('Light Sensor:', lightClassification);
-            console.log('');
+            // console.log('live classification:');
+            // console.log('Shake:', filteredShake);
+            // console.log('Rotate:', filteredRotate);
+            // console.log('Tilt:', filteredTilt);
+            // console.log('Load Sensor:', loadClassification);
+            // console.log('Light Sensor:', lightClassification);
+            // console.log('');
 
 
             const resultsToSave = {
