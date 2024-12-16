@@ -163,36 +163,73 @@ let classifier_rotate = new EdgeImpulseClassifier(Module_rotate);
 //creating instance for tilt classifier
 let classifier_tilt = new EdgeImpulseClassifier(Module_tilt);
 
+
+// Function to determine event type: grabbed, shaken, or both
+function determineEventType(results) {
+    const shakeLabel = results.Shake?.results?.find(r => r.label === 'shake' && r.value > 0.9);
+    const rotateLabel = results.Rotate?.results?.find(r => r.label === 'rotate' && r.value > 0.9);
+
+    if (shakeLabel && rotateLabel) {
+        return "Mug grabbed and shaken";
+    } else if (shakeLabel) {
+        return "Mug shaken";
+    } else if (rotateLabel) {
+        return "Mug grabbed";
+    }
+    return null;
+}
+
+// Function to format results for summary
+function formatResultsForSummary(results) {
+    const timestamp = new Date(results.timestamp);
+    const timeKey = timestamp.toTimeString().slice(0, 5); // Extract "HH:MM"
+
+    const loadSensor = results.LoadSensor || 'Unknown';
+    const lightSensor = results.LightSensor || 'Unknown';
+
+    const eventType = determineEventType(results);
+
+    if (!eventType) return null; // No valid event detected
+
+    const summary = [
+        eventType,  // "Mug grabbed", "Mug shaken", or both
+        loadSensor, // Load sensor classification
+        lightSensor // Light sensor classification
+    ].join(", "); // Combine into "Mug grabbed, Halfway, Dim"
+
+    return { [timeKey]: summary };
+}
+
 function writeResultsToFile(results) {
-    // Read existing data from the file
+    if (determineEventType(results) === null) {
+        return; // Do nothing if mug is not both grabbed and shaken
+    }
+
+    const summary = formatResultsForSummary(results);
+
+    // Read and update existing JSON file
     fs.readFile('../input.json', 'utf8', (err, data) => {
-        let jsonData = [];
-        if (!err) {
+        let summarizedData = {};
+
+        if (!err && data.trim() !== '') {
             try {
-                jsonData = JSON.parse(data); 
-                if (!Array.isArray(jsonData)) { 
-                    console.error('Parsed data is not an array, resetting to empty array.');
-                    jsonData = []; 
-                }
+                const jsonData = JSON.parse(data);
+                summarizedData = Object.assign({}, ...jsonData.map(obj => obj));
             } catch (parseErr) {
                 console.error('Error parsing JSON data:', parseErr);
             }
         }
 
-        jsonData.push({
-            Shake: results.Shake,
-            Rotate: results.Rotate,
-            Tilt: results.Tilt,
-            LoadSensor: results.LoadSensor,
-            LightSensor: results.LightSensor,
-            timestamp: results.timestamp
-        });
-        const dataToWrite = JSON.stringify(jsonData, null, 2);
+        // Add the new summary entry
+        summarizedData = { ...summarizedData, ...summary };
+
+        // Write the updated data back to the file
+        const dataToWrite = JSON.stringify([summarizedData], null, 2);
         fs.writeFile('../input.json', dataToWrite, (err) => {
             if (err) {
-                console.error('Error writing to file', err);
+                console.error('Error writing to file:', err);
             } else {
-                console.log('Results saved to input.json');
+                console.log('Results summarized and saved to input.json');
             }
         });
     });
