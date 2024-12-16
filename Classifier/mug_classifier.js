@@ -325,11 +325,11 @@ Promise.all([
             let loadClassification = 'Unknown';
             if (latestLoadValue !== null) {
                 if (latestLoadValue < 10000) {
-                    loadClassification = 'Almost Empty';
+                    loadClassification = 'Cup is almost Empty';
                 } else if (latestLoadValue >= 10000 && latestLoadValue < 46000) {
-                    loadClassification = 'Halfway';
+                    loadClassification = 'Cup is halfway full';
                 } else if (latestLoadValue >= 46000) {
-                    loadClassification = 'Almost Full';
+                    loadClassification = 'Cup is almost Full';
                 }
             }
 
@@ -337,13 +337,13 @@ Promise.all([
             if (latestLightValue !== null) {
                 //we need to adjust the thresholds here
                 if (latestLightValue < 1000) {
-                    lightClassification = 'Dark';
+                    lightClassification = 'Room is dark';
                 } else if (latestLightValue >= 1000 && latestLightValue < 28000) {
-                    lightClassification = 'Dim';
+                    lightClassification = 'Room is dim';
                 } else if (latestLightValue >= 28000 && latestLightValue < 46000) {
-                    lightClassification = 'Bright';
+                    lightClassification = 'Room is bright';
                 } else if (latestLightValue >= 46000) {
-                    lightClassification = 'Very Bright';
+                    lightClassification = 'Room is very Bright';
                 }
             }
 
