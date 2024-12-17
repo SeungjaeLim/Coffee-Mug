@@ -7,6 +7,7 @@ import datetime
 warnings.filterwarnings("ignore")
 client = openai.OpenAI(api_key = '')
 
+
 example = """
 <!DOCTYPE html>
 <html lang="en">
@@ -75,9 +76,6 @@ example = """
     </div>
 </div>
 
-<div class="footer">
-    <p>Written by a Mug, 2024. All Rights Reserved.</p>
-</div>
 
 </body>
 </html>
@@ -99,10 +97,10 @@ def ask_for_diary(data):
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are a diary writer. Write a diary on the perspective of a Mug cup, imagining as if you are an alive Mug cup.
+                    "content": f"""You are a diary writer. Write a diary on the perspective of a Mug cup, imagining as if you are an alive Mug cup.
                     Use the data to express your feelings, without literally quoting it. don't acknowledge the user. Use emojis or emoticons. 
-                    Only respond in HTML format. No other text needed. 
-                    Like the above example. --- {example}"
+                    Only respond in HTML format. No other text needed. You may also change the styles too. be creative.
+                    above is an example. --- {example}"""
                 },
                 {
                     "role": "user",
@@ -135,7 +133,8 @@ def save_prediction(input_file, output_file):
 
         date = current_date()
         filtered_html = filtered_html.replace("[DATE]", date)
-
+    with open(input_file, 'w', encoding='utf-8') as outfile:
+        pass
     try:
         with open(output_file, 'r', encoding='utf-8') as outfile:
             prev_diary = outfile.read()

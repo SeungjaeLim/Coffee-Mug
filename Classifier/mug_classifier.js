@@ -6,7 +6,7 @@ const Module_tilt = require('./node_tilt/edge-impulse-standalone'); // Second mo
 const Module_SR = require('./node_SR/edge-impulse-standalone'); // Second module
 const fs = require('fs');
 const { SerialPort, ReadlineParser } = require('serialport');
-
+const { exec } = require('child_process');
 // const path = '/dev/tty.usbmodem101'; 
 const path = 'COM4';
 
@@ -21,7 +21,7 @@ let loadSensorBuffer = [];
 let lightSensorBuffer = [];
 
 // Duration for data collection (in milliseconds)
-const WINDOW_DURATION = 2000; // 2 seconds
+const WINDOW_DURATION = 5000; // 5 seconds
 //number of samples in rolling window
 const N = 50;
 let features = Array(N).fill(0);
@@ -187,10 +187,16 @@ function determineEventType(results) {
     return null;
 }
 
+let count = 0;
 // Function to format results for summary
 function formatResultsForSummary(results) {
     const timestamp = new Date(results.timestamp);
     const timeKey = timestamp.toTimeString().slice(0, 5); // Extract "HH:MM"
+
+
+    const hour = 9 + Math.floor(count / 2); // (9 + count // 2)
+    const minute = count % 2; // (count % 2)
+    const timeKey = `${String(hour).padStart(2, '0')}:${String(minute * 30).padStart(2, '0')}`; // The minute is either 0 or 30
 
     const loadSensor = results.LoadSensor || 'Unknown';
     const lightSensor = results.LightSensor || 'Unknown';
@@ -242,6 +248,12 @@ function writeResultsToFile(results) {
         });
     });
 }
+function runPythonScript() {
+    exec('python ../llm.py', (error, stdout, stderr) => {
+        console.log(`stdout: ${stdout}`);
+    });
+}
+
 
 Promise.all([
     // classifier_shake.init(),
@@ -250,6 +262,26 @@ Promise.all([
     classifier_SR.init()
 ]).then(()=>{
     setInterval(() => {
+
+
+//        const now = new Date();
+//
+//        // Get the current time in UTC+9 (subtract 9 hours from UTC)
+//        const utcPlus9 = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+//
+//        // Check if it's midnight UTC+9
+//        if (utcPlus9.getHours() === 0 && utcPlus9.getMinutes() === 0 && utcPlus9.getSeconds() === 0) {
+//            runPythonScript(); // Call the Python script at midnight UTC+9
+//        }
+//
+
+        count++;
+        // Call the Python script every 24 intervals (i.e., 2 minutes)
+        if (count === 24) {
+            runPythonScript(); // Call the Python script
+            count = 0; // Reset the counter
+        }
+
         if (buffer.length === 0) {
             console.log('No data collected in this window.');
             return;
