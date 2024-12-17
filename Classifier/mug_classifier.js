@@ -7,8 +7,9 @@ const Module_SR = require('./node_SR/edge-impulse-standalone'); // Second module
 const fs = require('fs');
 const { SerialPort, ReadlineParser } = require('serialport');
 const { exec } = require('child_process');
-// const path = '/dev/tty.usbmodem101'; 
-const path = 'COM4';
+const path = '/dev/tty.usbmodem1101'; 
+const llmScriptPath = './llm.py';
+//const path = 'COM4';
 
 const baudRate = 115200;
 
@@ -191,8 +192,7 @@ let count = 0;
 // Function to format results for summary
 function formatResultsForSummary(results) {
     const timestamp = new Date(results.timestamp);
-    const timeKey = timestamp.toTimeString().slice(0, 5); // Extract "HH:MM"
-
+    const timeKeyOriginal = timestamp.toTimeString().slice(0, 5); // Extract "HH:MM"
 
     const hour = 9 + Math.floor(count / 2); // (9 + count // 2)
     const minute = count % 2; // (count % 2)
@@ -222,7 +222,7 @@ function writeResultsToFile(results) {
     const summary = formatResultsForSummary(results);
 
     // Read and update existing JSON file
-    fs.readFile('../input.json', 'utf8', (err, data) => {
+    fs.readFile('./input.json', 'utf8', (err, data) => {
         let summarizedData = {};
 
         if (!err && data.trim() !== '') {
@@ -239,7 +239,7 @@ function writeResultsToFile(results) {
 
         // Write the updated data back to the file
         const dataToWrite = JSON.stringify([summarizedData], null, 2);
-        fs.writeFile('../input.json', dataToWrite, (err) => {
+        fs.writeFile('./input.json', dataToWrite, (err) => {
             if (err) {
                 console.error('Error writing to file:', err);
             } else {
@@ -249,8 +249,16 @@ function writeResultsToFile(results) {
     });
 }
 function runPythonScript() {
-    exec('python ../llm.py', (error, stdout, stderr) => {
+    
+    exec(`python3 ${llmScriptPath}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`exec error: ${error}`);
+            return;
+        }
         console.log(`stdout: ${stdout}`);
+        if (stderr) {
+            console.error(`stderr: ${stderr}`);
+        }
     });
 }
 
@@ -402,7 +410,7 @@ Promise.all([
             console.error('classification error:', err);
         }
 
-    }, WINDOW_DURATION);
+    }, 5000); // Set interval to 500 milliseconds
     parser.on('data', (data) => {
         const parts = data.trim().split(',');
         if (parts.length < 6) {
